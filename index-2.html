@@ -1600,11 +1600,12 @@ function fitLobbyNames(root){
   const scope=root||document;
   const names=scope.querySelectorAll('.signage-lobby .kl-event-name');
   names.forEach(function(n){
-    n.style.fontSize='';
+    n.style.removeProperty('font-size');
     const base=parseFloat(getComputedStyle(n).fontSize);
     if(!base)return;
-    let size=base,guard=0;
-    while(n.scrollHeight>n.clientHeight+1&&guard++<14){size-=base*.06;n.style.fontSize=size+'px'}
+    /* 스타일시트의 font-size가 !important라 인라인도 important로 넣어야 실제로 줄어듭니다. */
+    const floor=base*.62;let size=base,guard=0;
+    while(n.scrollHeight>n.clientHeight+1&&guard++<16&&size>floor){size=Math.max(floor,size-base*.05);n.style.setProperty('font-size',size+'px','important')}
   });
 }
 function rColor(c){return `${c}22`}
@@ -1863,7 +1864,7 @@ const EXPORT_STYLE_FIELDS=[
   'box-sizing','margin','margin-top','margin-bottom','margin-left','margin-right','padding','padding-top','padding-bottom','padding-left','padding-right',
   'border','border-top','border-bottom','border-left','border-right','border-radius','border-color','border-width','outline','box-shadow',
   'color','background','background-color','font','font-family','font-size','font-weight','font-style','font-stretch',
-  'line-height','letter-spacing','word-break','overflow-wrap','word-wrap','text-align','white-space','text-decoration','text-transform',
+  'line-height','letter-spacing','word-break','overflow-wrap','word-wrap','text-align','white-space','text-wrap','text-decoration','text-transform',
   'vertical-align','grid','grid-template-columns','grid-template-rows','grid-auto-flow','grid-auto-columns','grid-auto-rows','grid-column','grid-row','grid-area','place-items','flex','flex-basis','flex-direction','flex-grow','flex-shrink','flex-wrap','align-items','align-self',
   'justify-content','gap','row-gap','column-gap','object-fit','object-position','overflow','opacity','z-index','aspect-ratio',
   'text-overflow','container-type','transform','visibility'
