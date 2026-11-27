@@ -1038,7 +1038,8 @@ html.wk-standby #fs-toggle{display:none!important}
   --kl-name-block:12.1cqw;
   font-size:var(--kl-name-size)!important;
   line-height:1.13!important;
-  margin:1.4cqw 0 0!important;
+  /* 줄 간격은 처음 그대로: 제목 위 2.25cqw, 시간 위 2.4cqw(네 칸 모드는 1.45cqw).
+     두 줄 자리를 미리 잡아 두지만 않으면 한 줄 제목은 처음처럼 촘촘합니다. */
   /* 한 줄짜리 강의명은 한 줄 높이만 차지합니다(2026-11-27 피드백: 원래의 촘촘한 카드).
      카드마다 빈자리를 억지로 만들지 않고, 두 줄이 되는 제목만 그만큼 자연스럽게 늘어납니다.
      아주 긴 제목은 아래 max-height(두 줄)까지만 쓰고 넘치면 fitLobbyNames가 글자를 줄입니다. */
@@ -1078,7 +1079,6 @@ html.wk-standby #fs-toggle{display:none!important}
 .signage-lobby .kl-event .kl-room{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .signage-lobby .kl-event .kl-time{flex-wrap:wrap}
 .signage-lobby.kakao-lobby.four .kl-event-name{--kl-name-size:4.7cqw;--kl-name-block:11.3cqw}
-.signage-lobby .kl-event .kl-time{margin-top:1.6cqw!important}
 </style>
 </head>
 <body>
@@ -2706,7 +2706,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-1958';
+  var BUILD = '2026-11-27-2000';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
