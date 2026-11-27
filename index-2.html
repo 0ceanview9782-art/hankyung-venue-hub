@@ -1609,6 +1609,8 @@ let toastTimer=null;
 let pendingImageData='';
 function ymd(date){const d=new Date(date);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function dateObj(s){return new Date(s.slice(0,10)+'T12:00:00')}
+/* 안내판 '오늘'은 기기 시간대와 무관하게 한국 시간(KST) 기준으로 잡습니다. */
+function kstYmd(){const d=new Date(Date.now()+9*3600*1000);return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0')}
 function plusDays(s,n){let d=dateObj(s);d.setDate(d.getDate()+n);return ymd(d)}
 function weekMonday(d){const x=new Date(d);x.setHours(12,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return ymd(x)}
 function displayDay(s){return `${Number(s.slice(5,7))}.${String(Number(s.slice(8,10))).padStart(2,'0')}`}
@@ -2508,7 +2510,62 @@ function initAdminListeners(){
   initChatGPTImport();initCaptureImport();document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));$('new-event').addEventListener('click',()=>openModal());$('prev-week').onclick=()=>shiftCalendar(-1);$('next-week').onclick=()=>shiftCalendar(1);$('today-week').onclick=()=>resetCalendarToToday();$('mode-week').onclick=()=>setCalendarMode('week');$('mode-month').onclick=()=>setCalendarMode('month');$('mode-year').onclick=()=>setCalendarMode('year');$('booking-prev').onclick=()=>shiftBookings(-1);$('booking-next').onclick=()=>shiftBookings(1);$('booking-today').onclick=resetBookings;$('booking-mode-week').onclick=()=>setBookingMode('week');$('booking-mode-month').onclick=()=>setBookingMode('month');$('booking-search').oninput=renderBookings;$('booking-room').onchange=renderBookings;$('booking-status').onchange=renderBookings;$('go-signage').onclick=()=>setView('signage');$('schedule-grid').addEventListener('click',evt=>{let chip=evt.target.closest('[data-event]');if(chip){let row=state.events.find(x=>x.id===Number(chip.dataset.event));if(row)openModal(row);return}const weekly=evt.target.closest('.day-cell');if(weekly){openModal(null,{room:weekly.dataset.room,date:weekly.dataset.day});return}const monthCell=evt.target.closest('.month-cell');if(monthCell){if(state.rooms[0])openModal(null,{room:state.rooms[0].id,date:monthCell.dataset.day});return}const yearCard=evt.target.closest('.year-card');if(yearCard){state.calendarMode='month';state.calendarAnchor=yearCard.dataset.month;loadPeriod().catch(e=>toast(e.message,true));return}});$('bookings-tbody').addEventListener('click',evt=>{const b=evt.target.closest('[data-event]');if(b)openModal(state.bookingEvents.find(e=>e.id===Number(b.dataset.event)))});$('modal-close').onclick=closeModal;$('modal-cancel').onclick=closeModal;$('event-modal').addEventListener('click',e=>{if(e.target===$('event-modal'))closeModal()});$('event-all-day').onchange=toggleAllDay;$('event-image').onchange=e=>chooseEventImage(e.target.files[0]);const brandUp=$('brand-logo-upload');if(brandUp)brandUp.onchange=e=>chooseBrandLogo(e.target.files[0]);const brandRm=$('brand-logo-remove');if(brandRm)brandRm.onclick=removeBrandLogo;$('event-image-clear').onclick=()=>{pendingImageData='';updateImagePreview();const status=$('event-image-status');status.classList.remove('error','success');status.textContent='첨부 이미지가 제거되었습니다. [저장하기]를 눌러 적용하세요.'};$('event-form').addEventListener('submit',saveEvent);$('event-delete').onclick=deleteEvent;$('csv-export').onclick=()=>{if(demoMode){downloadOfflineCSV()}else location.href='/api/export.csv'};$('csv-import').onchange=e=>importCSV(e.target.files[0]);$('sign-date').onchange=e=>{state.signDate=e.target.value;updateWeekExportLabel();loadPublicPreview()};$('screen-list').addEventListener('click',e=>{const b=e.target.closest('[data-screen]');if(!b)return;state.screen=b.dataset.screen;state.previewIndex=0;updateScreenButtons();renderPreview()});$('preview-prev').onclick=()=>changePreview(-1);$('preview-next').onclick=()=>changePreview(1);$('open-screen').onclick=()=>openScreen(false);$('open-preview-screen').onclick=()=>openScreen(true);$('copy-screen-link').onclick=copyDisplayLink;$('save-signage').onclick=downloadImage;$('download-lobby-day').onclick=()=>runBulkDownload('day-lobby');$('download-lobby-week').onclick=()=>runBulkDownload('week-lobby');$('download-week-all').onclick=()=>runBulkDownload('week-all');$('logout-btn').onclick=async()=>{await send('/api/logout','POST',{});showLogin()};document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()})}
 async function loadInitial(){const c=await api('/api/config');state.rooms=c.rooms;$('top-today').textContent=fullDate(TODAY);$('event-room').innerHTML=state.rooms.map(r=>`<option value="${r.id}">${r.name} 강의실</option>`).join('');$('booking-room').innerHTML='<option value="all">전체 강의실</option>'+state.rooms.map(r=>`<option value="${r.id}">${r.name} 강의실</option>`).join('');$('sign-date').value=state.signDate;updateWeekExportLabel();renderScreenButtons();await loadPeriod();await loadBookingPeriod();await loadBranding();if(window.__week1122Update){const d=window.__week1122Update;if(d.conflicts)toast(`대관표 ${d.added}건 반영, 기존 예약과 겹친 ${d.conflicts}건은 건너뛰었습니다.`,true);else if(d.added)toast(`11/22~11/28 대관표 ${d.added}건 반영 완료`);delete window.__week1122Update}if(window.__week1129Update){const d=window.__week1129Update;if(d.conflicts)toast(`11/29~12/05 대관표 ${d.added}건 반영, 기존 예약과 겹친 ${d.conflicts}건은 건너뛰었습니다.`,true);else if(d.added)toast(`11/29~12/05 대관표 ${d.added}건 반영 완료`);delete window.__week1129Update}}
 async function initAdmin(){initAdminListeners();$('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await send('/api/login','POST',{password:$('login-password').value});$('login-password').value='';state.authenticated=true;hideLogin();await loadInitial()}catch(err){$('login-error').textContent=err.message}});try{const s=await api('/api/session');if(s.authenticated){state.authenticated=true;hideLogin();await loadInitial()}else showLogin()}catch(e){showLogin();toast(e.message,true)}setInterval(()=>{if(state.authenticated && $('login-cover').classList.contains('hidden') && $('event-modal').classList.contains('hidden'))loadPeriod().catch(()=>{})},20000)}
-async function initDisplay(){const display=$('display-root');$('app').classList.add('hidden');$('login-cover').classList.add('hidden');display.classList.remove('hidden');const parts=path.split('/');const screen=displayQuery||(parts[2]==='lobby'?'lobby':parts[3]||'lobby');const qs=new URLSearchParams(location.search);const forcedDate=qs.get('date');const update=async()=>{await loadBranding();const day=forcedDate||ymd(new Date());let data;try{data=await api(`/api/public/events?from=${day}&to=${plusDays(day,1)}`)}catch(e){return}if(!state.rooms.length){try{state.rooms=(await api('/api/config')).rooms}catch{}}state.publicEvents=data.events;state.signDate=day;state.screen=screen;renderDisplay()};function renderDisplay(){const items=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).sort((a,b)=>a.start_at.localeCompare(b.start_at));display.classList.toggle('lobby-screen',screen==='lobby');if(screen==='lobby'){display.innerHTML=lobbySigHTML(items,state.signDate);fitLobbyNames(display);observeLobby(display);}else display.innerHTML=roomSigHTML(room(screen),items[state.previewIndex%Math.max(items.length,1)],state.signDate)}if(window.__sheetFirstLoad){try{await Promise.race([window.__sheetFirstLoad,new Promise(r=>setTimeout(r,1600))])}catch(e){}}await update();setInterval(update,10000);setInterval(()=>{const n=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).length;if(n>1){state.previewIndex=screen==='lobby'?((Math.floor(state.previewIndex/4)+1)%Math.ceil(n/4))*4:(state.previewIndex+1)%n;renderDisplay()}},13000)}
+async function initDisplay(){const display=$('display-root');$('app').classList.add('hidden');$('login-cover').classList.add('hidden');display.classList.remove('hidden');const parts=path.split('/');const screen=displayQuery||(parts[2]==='lobby'?'lobby':parts[3]||'lobby');const qs=new URLSearchParams(location.search);let viewDate=qs.get('date')||'';const update=async()=>{await loadBranding();const day=viewDate||kstYmd();let data;try{data=await api(`/api/public/events?from=${day}&to=${plusDays(day,1)}`)}catch(e){return}if(!state.rooms.length){try{state.rooms=(await api('/api/config')).rooms}catch{}}if(day!==(viewDate||kstYmd()))return;state.publicEvents=data.events;state.signDate=day;state.screen=screen;renderDisplay()};function renderDisplay(){const items=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).sort((a,b)=>a.start_at.localeCompare(b.start_at));display.classList.toggle('lobby-screen',screen==='lobby');if(screen==='lobby'){display.innerHTML=lobbySigHTML(items,state.signDate);fitLobbyNames(display);observeLobby(display);}else display.innerHTML=roomSigHTML(room(screen),items[state.previewIndex%Math.max(items.length,1)],state.signDate)}if(window.__sheetFirstLoad){try{await Promise.race([window.__sheetFirstLoad,new Promise(r=>setTimeout(r,1600))])}catch(e){}}await update();setInterval(update,10000);setInterval(()=>{const n=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).length;if(n>1){state.previewIndex=screen==='lobby'?((Math.floor(state.previewIndex/4)+1)%Math.ceil(n/4))*4:(state.previewIndex+1)%n;renderDisplay()}},13000)
+
+  /* ── 날짜 넘기기 (2026-11-27 추가) ────────────────────────────────────
+     안내판에서 오른쪽으로 쓸어넘기면 다음 날, 왼쪽으로 쓸어넘기면 이전 날을 미리 봅니다.
+     키보드 ← → 도 같고, 노트북에서는 마우스로 끌어도 됩니다.
+     · 고른 날짜는 주소에 &date=YYYY-MM-DD 로 남겨 새로고침해도 그 날짜가 유지됩니다.
+     · 오늘로 돌아오면 date를 지워 다시 '실시간'으로 돌아갑니다(주말 검정 대기도 그때 다시 적용).
+     · 미리 본 날짜를 10분 넘게 그대로 두면 저절로 오늘(실시간)로 돌아갑니다.
+       (아무도 손대지 않은 안내판이 엉뚱한 날짜에 멈춰 있지 않게) */
+  var NAV_IDLE_MS = 10 * 60 * 1000;
+  var navTimer = null;
+  function setViewDate(target) {
+    var today = kstYmd();
+    var next = (!target || target === today) ? '' : target;
+    viewDate = next;
+    try {
+      var u = new URL(location.href);
+      if (next) u.searchParams.set('date', next); else u.searchParams.delete('date');
+      u.searchParams.delete('v');
+      history.replaceState(null, '', u.toString());
+    } catch (e) {}
+    state.previewIndex = 0;
+    if (typeof window.__venueWeekendGuard === 'function') window.__venueWeekendGuard();
+    update();
+    clearTimeout(navTimer);
+    if (next) navTimer = setTimeout(function () { if (viewDate) setViewDate(''); }, NAV_IDLE_MS);
+  }
+  function shiftDate(n) { setViewDate(plusDays(viewDate || kstYmd(), n)); }
+  window.__venueSignage = { shift: shiftDate, set: setViewDate, now: function () { return { date: viewDate || kstYmd(), live: kstYmd(), screen: screen }; } };
+
+  /* 손가락 쓸어넘기: 가로로 50px 넘게, 세로보다 가로가 확실할 때만 (세로 스크롤은 그대로) */
+  var touchStart = null;
+  function onTouchStart(ev) {
+    if (ev.touches && ev.touches.length !== 1) { touchStart = null; return; }
+    var t = (ev.touches && ev.touches[0]) || ev;
+    touchStart = { x: t.clientX, y: t.clientY, at: Date.now() };
+  }
+  function onDragEnd(ev) {
+    if (!touchStart) return;
+    var t = (ev.changedTouches && ev.changedTouches[0]) || ev;
+    var dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.abs(dx) < 50) return;
+    if (Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+    shiftDate(dx > 0 ? 1 : -1);
+  }
+  document.addEventListener('touchstart', onTouchStart, { passive: true });
+  document.addEventListener('touchend', onDragEnd, { passive: true });
+  document.addEventListener('touchcancel', function () { touchStart = null; }, { passive: true });
+  document.addEventListener('mousedown', function (ev) { if (ev.button === 0) onTouchStart(ev); });
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'ArrowRight') { ev.preventDefault(); shiftDate(1); }
+    else if (ev.key === 'ArrowLeft') { ev.preventDefault(); shiftDate(-1); }
+  });
+}
 if(isDisplay)initDisplay();else initAdmin();
 })();
 
@@ -2593,7 +2650,10 @@ if(isDisplay)initDisplay();else initAdmin();
     var KD = 9 * 3600 * 1000;
     var standby = false;
     var overlay = document.getElementById('weekend-standby');
-    var forcedDate = q.get('date');
+    var forcedDate0 = q.get('date');
+    /* 쓸어넘겨 날짜를 미리 보면 주소의 date가 바뀝니다(history.replaceState).
+       그래서 처음 읽은 값이 아니라 그때그때 주소에서 다시 읽어 판단합니다. */
+    function forcedDateNow() { try { return new URLSearchParams(location.search).get('date') || ''; } catch (e) { return forcedDate0 || ''; } }
     var parts = location.pathname.split('/');
     var screen = q.get('display') || (parts[2] === 'lobby' ? 'lobby' : parts[3] || 'lobby');
 
@@ -2673,11 +2733,11 @@ if(isDisplay)initDisplay();else initAdmin();
     function guard() {
       if (!overlay) return;
       var p = kstParts();
-      var want = !forcedDate && shouldBlank(p);
+      var want = !forcedDateNow() && shouldBlank(p);
       if (want !== standby) applyStandby(want);
       window.__venueWeekend = {
         standby: standby, mode: window.__venueWeekendMode || 'auto', raw: window.__venueWeekendRaw || '',
-        date: p.date, day: p.day, hhmm: p.hhmm, screen: screen, forcedDate: forcedDate || null,
+        date: p.date, day: p.day, hhmm: p.hhmm, screen: screen, forcedDate: forcedDateNow() || null,
         axWave2Until: AX_WAVE2_UNTIL, axExcluded: axExcluded
       };
     }
@@ -2706,7 +2766,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-2000';
+  var BUILD = '2026-11-27-2005';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
