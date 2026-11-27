@@ -1106,7 +1106,10 @@ html.wk-standby #fs-toggle{display:none!important}
    · 시트를 못 읽으면(오프라인 등) 마지막으로 성공한 시트 내용 → 브라우저 저장
      데이터 순으로 그대로 보여줍니다.
    · 열 순서: 날짜 / 강의실 / 시작시간 / 종료시간 / 강의명 / 이미지URL(선택) / 안내판표시
-     (헤더 이름으로 찾으므로 열 순서가 바뀌어도 됩니다) */
+     (헤더 이름으로 찾으므로 열 순서가 바뀌어도 됩니다)
+   · 날짜 칸은 하루(`2026-12-01`)도 되고, 기간(`2026-11-22~2027-04-28`)도 됩니다.
+     기간으로 적으면 그 시작일부터 종료일까지 매일 대관이 있는 것으로 보여주고,
+     강의실 안내판 아래 DATE 칸에는 전체 기간이 표시됩니다. */
 (function () {
   var SHEET_ID = '1HQSV8IpdNfbXgt6zr8c1tB2m2OaGmovMTNi0Noz9Yvw';
   var SHEET_TAB = '대관일정';
@@ -1130,15 +1133,35 @@ html.wk-standby #fs-toggle{display:none!important}
     return String(v).trim();
   }
   function toDate(s) {
+    var list = parseDates(s);
+    return list.length ? list[0] : '';
+  }
+  /* 날짜 칸에서 날짜를 모두 꺼냅니다. 한 칸 값이 하나면 하루, 둘이면 기간 일정입니다.
+     예: `2026-11-22` / `2026.11.22` / `2026-11-22 ~ 2027-04-28` / `2026.11.22-2027.04.28` */
+  function parseDates(s) {
     s = String(s || '').trim();
-    if (!s) return '';
+    var out = [];
+    if (!s) return out;
     var m = s.match(/^Date\((\d+),(\d+),(\d+)/);
-    if (m) return m[1] + '-' + pad(+m[2] + 1) + '-' + pad(+m[3]);
-    m = s.match(/(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/);
-    if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
-    m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
-    if (m) { var y = +m[3]; if (y < 100) y += 2000; return y + '-' + pad(+m[1]) + '-' + pad(+m[2]); }
-    return '';
+    if (m) { out.push(m[1] + '-' + pad(+m[2] + 1) + '-' + pad(+m[3])); return out; }
+    var re = /(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/g, x;
+    while ((x = re.exec(s))) {
+      if (+x[2] >= 1 && +x[2] <= 12 && +x[3] >= 1 && +x[3] <= 31) out.push(x[1] + '-' + pad(+x[2]) + '-' + pad(+x[3]));
+      if (out.length >= 2) break;   /* 기간은 두 날짜까지만 */
+    }
+    if (!out.length) {
+      m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+      if (m) { var y = +m[3]; if (y < 100) y += 2000; out.push(y + '-' + pad(+m[1]) + '-' + pad(+m[2])); }
+    }
+    return out;
+  }
+  /* 날짜 칸 → { start, end, range } (기간이면 종료일 포함, 거꾸로 적혀도 바로잡음) */
+  function toDateSpan(s) {
+    var list = parseDates(s);
+    if (!list.length) return null;
+    var a = list[0], b = list.length > 1 ? list[1] : list[0];
+    if (b < a) { var t = a; a = b; b = t; }
+    return { start: a, end: b, range: a !== b };
   }
   function toTime(s) {
     s = String(s || '').trim();
@@ -1231,7 +1254,8 @@ html.wk-standby #fs-toggle{display:none!important}
     var out = [], seen = {};
     (table.rows || []).forEach(function (row) {
       var c = (row && row.c) || [];
-      var date = toDate(txt(c[iDate]));
+      var span = toDateSpan(txt(c[iDate]));
+      var date = span ? span.start : '';
       var roomRaw = txt(c[iRoom]);
       var room = ROOM_ALIAS[norm(roomRaw)] || ROOM_ALIAS[roomRaw.trim().toLowerCase()] || '';
       var title = txt(c[iTitle]).trim();
@@ -1241,7 +1265,19 @@ html.wk-standby #fs-toggle{display:none!important}
 
       var st = toTime(txt(c[iStart])), et = toTime(txt(c[iEnd]));
       var allDay = !st && !et, s, e;
-      if (allDay) {
+      if (span && span.range) {
+        /* 기간 일정(예: 2026-11-22~2027-04-28): 시작일부터 종료일까지 이어지는 한 건으로 둡니다.
+           시간을 적었으면 시작일 그 시각 ~ 종료일 그 시각, 아니면 종일입니다. */
+        if (st || et) {
+          st = st || '00:00'; et = et || '23:59';
+          s = date + 'T' + st; e = span.end + 'T' + et;
+          if (e <= s) e = addDays(span.end) + 'T' + et;
+          allDay = false;
+        } else {
+          s = date + 'T00:00'; e = addDays(span.end) + 'T00:00';   /* 종료일 포함 (다음날 00:00 마감) */
+          allDay = true;
+        }
+      } else if (allDay) {
         s = date + 'T00:00';
         e = addDays(date) + 'T00:00';
       } else {
@@ -1260,6 +1296,8 @@ html.wk-standby #fs-toggle{display:none!important}
         public_title: title,
         start_at: s,
         end_at: e,
+        start_date: date,
+        end_date: span ? span.end : date,
         all_day: allDay ? 1 : 0,
         status: 'confirmed',
         is_public: 1,
@@ -2431,6 +2469,8 @@ if(isDisplay)initDisplay();else initAdmin();
          08:00 이 되면 저절로 밝아지고, 주말에 대관이 있으면 그때는 켜져 있습니다.
        · 예외: 트렌드 'AX Wave 2기' 대관은 2027-04-28 까지 주말 판단에서 대관 없음으로
          봅니다(트렌드·로비 모두). 아래 `isWeekendException` 참고.
+       · 날짜 칸에 기간(예: 2026-11-22~2027-04-28)을 적은 줄은 그 기간 내내 대관이 있는
+         것으로 보아 판단합니다.
        · 덮여 있는 동안에도 화면 꺼짐 방지(wake lock)는 계속 요청된 상태로 두어
          태블릿이 스스로 켜질 수 있게 합니다.
        · 주소에 &date=YYYY-MM-DD 를 붙여 다른 날짜를 미리 볼 때는 덮지 않습니다. */
@@ -2478,12 +2518,11 @@ if(isDisplay)initDisplay();else initAdmin();
        다른 강의실 일정이나 다른 행사는 그대로 켜는 근거가 됩니다. */
     var AX_WAVE2_UNTIL = '2027-04-28';
     var axExcluded = 0;
-    function isWeekendException(e) {
+    function isWeekendException(e, p) {
       if (String(e.room || '') !== 'trend') return false;
+      if (!p || p.date > AX_WAVE2_UNTIL) return false;   /* 2027-04-28 다음 날부터는 원래대로 */
       var t = String(e.title || e.public_title || '').toLowerCase().replace(/\s+/g, '');
-      if (t.indexOf('axwave2기') < 0) return false;
-      var d = String(e.start_at || '').slice(0, 10);
-      return !!d && d <= AX_WAVE2_UNTIL;
+      return t.indexOf('axwave2기') >= 0;
     }
     function screenHasEvent(p) {
       var list = window.__sheetEvents;
@@ -2492,11 +2531,12 @@ if(isDisplay)initDisplay();else initAdmin();
       axExcluded = 0;
       for (var i = 0; i < list.length; i++) {
         var e = list[i] || {};
-        if (isWeekendException(e)) { axExcluded++; continue; }
+        if (isWeekendException(e, p)) { axExcluded++; continue; }
         if (screen !== 'lobby' && e.room !== screen) continue;
-        if (String(e.start_at || '').slice(0, 10) !== p.date) continue;
+        var s = String(e.start_at || ''), en = String(e.end_at || '');
+        if (!s || !en) continue;
         if (p.day === 1 && e.all_day) continue;  /* 월요일 08시 전에는 종일 일정을 무시 */
-        if (String(e.end_at || '') > seg[0] && String(e.start_at || '') < seg[1]) return true;
+        if (en > seg[0] && s < seg[1]) return true;   /* 기간 일정(시작~종료)도 겹치면 포함 */
       }
       return false;
     }
