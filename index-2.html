@@ -1014,6 +1014,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .fs-toggle:active{opacity:1;transform:scale(.97)}
 .fs-toggle .fs-glyph{font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;display:inline-block;transform:translateY(-.5px)}
 .fs-toggle[hidden]{display:none!important}
+
+/* 주말 검정 대기 — 금 17:50 ~ 월 08:00 에 화면을 순수 검정으로 덮습니다 (2026-11-27).
+   시트 I4 '주말 송출' 설정으로 조절하며, 덮여 있는 동안에도 화면 꺼짐 방지(wake lock)는
+   계속 켜져 있어 월 08:00 이 되면 스스로 밝아집니다. */
+#weekend-standby{position:fixed;left:0;top:0;right:0;bottom:0;width:100vw;height:100vh;margin:0;padding:0;border:0;background:#000;z-index:9999;cursor:none;-webkit-tap-highlight-color:transparent}
+#weekend-standby[hidden]{display:none!important}
+html.wk-standby,html.wk-standby body{background:#000!important;overflow:hidden}
+html.wk-standby #fs-toggle{display:none!important}
 </style>
 </head>
 <body>
@@ -1089,6 +1097,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   <div id="toast" class="toast" role="status"></div>
   <div id="display-root" class="display-root hidden"></div>
   <button id="fs-toggle" class="fs-toggle" type="button" aria-label="전체화면으로 보기" title="전체화면으로 보기" hidden><span class="fs-glyph" aria-hidden="true">⛶</span>전체화면</button>
+  <div id="weekend-standby" hidden aria-hidden="true"></div>
 <script>
 /* ── 구글시트 실시간 연동 (2026-11-27) ─────────────────────────────────
    구글시트 '[한경아카데미] 공간운영허브_대관일정_마스터' 의 `대관일정` 탭을
@@ -1162,6 +1171,41 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     }
     if (/^https?:\/\//i.test(u)) return u;
     return '';
+  }
+
+  /* ── 시트 설정: '주말 송출' (2026-11-27) ─────────────────────────────
+     `대관일정` 탭 I3 에 설정 이름(`주말 송출(금17:50~월08:00)`), I4 에 드롭다운 값이 있습니다.
+     I3 의 글자(주말 송출)를 찾아 바로 아래 칸을 값으로 읽습니다. 열 위치가 바뀌어도 됩니다.
+     값: 자동(대관 있을 때만) = auto / 항상 켜기 = on / 끄기 = off */
+  function readWeekendMode(json) {
+    var rows = (json && json.table && json.table.rows) || [];
+    var raw = '', r, i, c, v;
+    for (r = 0; r < rows.length && !raw; r++) {
+      c = (rows[r] && rows[r].c) || [];
+      for (i = 0; i < c.length; i++) {
+        v = txt(c[i]);
+        if (v.replace(/\s/g, '').indexOf('주말송출') === 0) {
+          var below = rows[r + 1] && rows[r + 1].c && rows[r + 1].c[i];
+          raw = txt(below);
+          break;
+        }
+      }
+    }
+    if (!raw) {   /* 이름 칸을 못 찾으면 값 자체로 찾습니다 */
+      for (r = 0; r < rows.length && !raw; r++) {
+        c = (rows[r] && rows[r].c) || [];
+        for (i = 0; i < c.length; i++) {
+          v = txt(c[i]).replace(/\s/g, '');
+          if (v.indexOf('자동') === 0 || v.indexOf('항상') === 0 || v.indexOf('끄기') === 0) { raw = txt(c[i]); break; }
+        }
+      }
+    }
+    var key = raw.replace(/\s/g, '');
+    var mode = 'auto';
+    if (key.indexOf('항상') === 0) mode = 'on';
+    else if (key.indexOf('끄기') === 0) mode = 'off';
+    window.__venueWeekendRaw = raw;
+    return mode;
   }
 
   function build(json) {
@@ -1244,7 +1288,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       var events = build(j);
       if (!events) throw new Error('표를 읽지 못했습니다');
       window.__sheetEvents = events;
-      window.__sheetSync = { ok: true, at: new Date().toISOString(), count: events.length };
+      window.__venueWeekendMode = readWeekendMode(j);
+      window.__sheetSync = { ok: true, at: new Date().toISOString(), count: events.length, weekend: window.__venueWeekendMode };
       return events;
     });
   }
@@ -2346,7 +2391,7 @@ if(isDisplay)initDisplay();else initAdmin();
 
     function sync() {
       var app = isAppMode();
-      btn.hidden = app;
+      btn.hidden = app || standby;   /* 검정 대기 중에는 전체화면 버튼도 숨김 */
       if (app) keepAwake();
     }
 
@@ -2375,12 +2420,102 @@ if(isDisplay)initDisplay();else initAdmin();
 
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync);
+
+    /* ── 주말 검정 대기 (2026-11-27) ─────────────────────────────────────
+       금 17:50 ~ 월 08:00 사이는 건물이 비므로 화면을 순수 검정(#000)으로 덮어 둡니다.
+       · 시트 `대관일정` I4 '주말 송출' 드롭다운으로 조절합니다.
+         자동(대관 있을 때만 · 기본값) → 그날 그 화면에 대관이 있을 때만 켭니다.
+         항상 켜기 → 덮지 않습니다.  끄기 → 무조건 덮습니다.
+       · 자동 판단: 오늘 중 이 화면(로비는 전체 강의실)에 걸린 대관이 있는지 봅니다.
+         금요일은 17:50 이후, 월요일은 08:00 이전 구간만 따집니다. 그래서 월요일에는
+         08:00 이 되면 저절로 밝아지고, 주말에 대관이 있으면 그때는 켜져 있습니다.
+       · 덮여 있는 동안에도 화면 꺼짐 방지(wake lock)는 계속 요청된 상태로 두어
+         태블릿이 스스로 켜질 수 있게 합니다.
+       · 주소에 &date=YYYY-MM-DD 를 붙여 다른 날짜를 미리 볼 때는 덮지 않습니다. */
+    var KD = 9 * 3600 * 1000;
+    var standby = false;
+    var overlay = document.getElementById('weekend-standby');
+    var forcedDate = q.get('date');
+    var parts = location.pathname.split('/');
+    var screen = q.get('display') || (parts[2] === 'lobby' ? 'lobby' : parts[3] || 'lobby');
+
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+    /* 지금 시각을 한국 시간(KST) 기준으로 계산합니다. (기기 시간대와 무관) */
+    function kstNow() {
+      var o = window.__venueWeekendNow;   /* 테스트·미리보기용 시계 */
+      if (o) {
+        var d = (typeof o === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(o)) ? new Date(o + '+09:00') : new Date(o);
+        if (!isNaN(d.getTime())) return new Date(d.getTime() + KD);
+      }
+      return new Date(Date.now() + KD);
+    }
+    function kstParts() {
+      var d = kstNow();
+      return {
+        date: d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()),
+        day: d.getUTCDay(),                 /* 0=일 1=월 5=금 6=토 */
+        hhmm: d.getUTCHours() * 100 + d.getUTCMinutes()
+      };
+    }
+    function inWindow(p) {
+      if (p.day === 5) return p.hhmm >= 1750;   /* 금 17:50 ~ */
+      if (p.day === 6 || p.day === 0) return true;   /* 토·일 종일 */
+      if (p.day === 1) return p.hhmm < 800;     /* ~ 월 08:00 */
+      return false;
+    }
+    /* 오늘 중 주말 대기 구간에 해당하는 부분 */
+    function todaySegment(p) {
+      if (p.day === 5) return [p.date + 'T17:50', p.date + 'T24:00'];
+      if (p.day === 1) return [p.date + 'T00:00', p.date + 'T08:00'];
+      return [p.date + 'T00:00', p.date + 'T24:00'];
+    }
+    function screenHasEvent(p) {
+      var list = window.__sheetEvents;
+      if (!Array.isArray(list)) return true;     /* 시트를 못 읽었을 때는 덮지 않음(안전) */
+      var seg = todaySegment(p);
+      for (var i = 0; i < list.length; i++) {
+        var e = list[i] || {};
+        if (screen !== 'lobby' && e.room !== screen) continue;
+        if (String(e.start_at || '').slice(0, 10) !== p.date) continue;
+        if (p.day === 1 && e.all_day) continue;  /* 월요일 08시 전에는 종일 일정을 무시 */
+        if (String(e.end_at || '') > seg[0] && String(e.start_at || '') < seg[1]) return true;
+      }
+      return false;
+    }
+    function shouldBlank(p) {
+      if (!inWindow(p)) return false;
+      var mode = window.__venueWeekendMode || 'auto';
+      if (mode === 'on') return false;     /* 항상 켜기 */
+      if (mode === 'off') return true;     /* 끄기 */
+      return !screenHasEvent(p);           /* 자동: 오늘 이 화면에 대관이 없으면 검정 */
+    }
+    function applyStandby(want) {
+      standby = want;
+      if (overlay) { overlay.hidden = !want; overlay.setAttribute('aria-hidden', want ? 'false' : 'true'); }
+      document.documentElement.classList.toggle('wk-standby', want);
+      if (want) keepAwake();               /* 검정 대기 중에도 화면 꺼짐 방지는 유지 */
+      sync();
+    }
+    function guard() {
+      if (!overlay) return;
+      var p = kstParts();
+      var want = !forcedDate && shouldBlank(p);
+      if (want !== standby) applyStandby(want);
+      window.__venueWeekend = {
+        standby: standby, mode: window.__venueWeekendMode || 'auto', raw: window.__venueWeekendRaw || '',
+        date: p.date, day: p.day, hhmm: p.hhmm, screen: screen, forcedDate: forcedDate || null
+      };
+    }
+    window.__venueWeekendGuard = guard;
+
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') { keepAwake(); sync(); }
+      if (document.visibilityState === 'visible') { keepAwake(); guard(); sync(); }
     });
 
+    guard();
     sync();
     keepAwake();
+    setInterval(guard, 5000);
 
     /* 홈 화면 앱 설치가 가능한 환경이면 서비스 워커를 조용히 등록 (캐시 없음). */
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
