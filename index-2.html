@@ -1256,6 +1256,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     });
   }
 
+  /* 디버깅용: 콘솔에서 이미지 주소 변환 규칙을 확인할 수 있게 열어 둡니다. */
+  window.__venueSheetImageUrl = imageUrl;
+
   /* 첫 로딩: 안내판이 잠시 옛 데이터를 보여주지 않도록 최대 1.6초만 기다립니다. */
   window.__sheetFirstLoad = tick();
   setInterval(tick, REFRESH_MS);
