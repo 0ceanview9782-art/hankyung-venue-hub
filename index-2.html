@@ -1642,7 +1642,11 @@ function fitLobbyNames(root){
     /* 스타일시트의 font-size가 !important라 인라인도 important로 넣어야 실제로 줄어듭니다.
        가로(카드 밖으로 넘침)와 세로(2줄 자리 넘침)를 함께 확인하며 줄입니다. */
     const floor=Math.max(6,base*.55);
-    const fits=function(){return n.scrollWidth<=n.clientWidth+1&&n.scrollHeight<=n.clientHeight+1};
+    /* 기준은 '두 줄까지'. min-height를 걷어냈기 때문에 clientHeight가 한 줄 높이밖에 안 되고,
+       그 값과 비교하면 반올림 오차로도 계속 넘치는 것으로 잡혀 글자가 끝까지 줄어듭니다.
+       그래서 지금 글자 크기의 줄 높이 × 2줄을 기준으로 삼습니다. */
+    const blockH=function(){const s=getComputedStyle(n);const lh=parseFloat(s.lineHeight);return (lh||base*1.13)*2+2};
+    const fits=function(){return n.scrollWidth<=n.clientWidth+1&&n.scrollHeight<=blockH()};
     let size=base,guard=0;
     while(!fits()&&guard++<40&&size>floor){
       size=Math.max(floor,size-Math.max(.5,size*.04));
@@ -2702,7 +2706,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-1953';
+  var BUILD = '2026-11-27-1956';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
