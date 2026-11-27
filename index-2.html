@@ -2513,8 +2513,8 @@ async function initAdmin(){initAdminListeners();$('login-form').addEventListener
 async function initDisplay(){const display=$('display-root');$('app').classList.add('hidden');$('login-cover').classList.add('hidden');display.classList.remove('hidden');const parts=path.split('/');const screen=displayQuery||(parts[2]==='lobby'?'lobby':parts[3]||'lobby');const qs=new URLSearchParams(location.search);let viewDate=qs.get('date')||'';const update=async()=>{await loadBranding();const day=viewDate||kstYmd();let data;try{data=await api(`/api/public/events?from=${day}&to=${plusDays(day,1)}`)}catch(e){return}if(!state.rooms.length){try{state.rooms=(await api('/api/config')).rooms}catch{}}if(day!==(viewDate||kstYmd()))return;state.publicEvents=data.events;state.signDate=day;state.screen=screen;renderDisplay()};function renderDisplay(){const items=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).sort((a,b)=>a.start_at.localeCompare(b.start_at));display.classList.toggle('lobby-screen',screen==='lobby');if(screen==='lobby'){display.innerHTML=lobbySigHTML(items,state.signDate);fitLobbyNames(display);observeLobby(display);}else display.innerHTML=roomSigHTML(room(screen),items[state.previewIndex%Math.max(items.length,1)],state.signDate)}if(window.__sheetFirstLoad){try{await Promise.race([window.__sheetFirstLoad,new Promise(r=>setTimeout(r,1600))])}catch(e){}}await update();setInterval(update,10000);setInterval(()=>{const n=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).length;if(n>1){state.previewIndex=screen==='lobby'?((Math.floor(state.previewIndex/4)+1)%Math.ceil(n/4))*4:(state.previewIndex+1)%n;renderDisplay()}},13000)
 
   /* ── 날짜 넘기기 (2026-11-27 추가) ────────────────────────────────────
-     안내판에서 오른쪽으로 쓸어넘기면 다음 날, 왼쪽으로 쓸어넘기면 이전 날을 미리 봅니다.
-     키보드 ← → 도 같고, 노트북에서는 마우스로 끌어도 됩니다.
+     안내판에서 왼쪽으로 쓸어넘기면(손가락을 왼쪽으로 밀면) 다음 날, 오른쪽으로 쓸어넘기면 이전 날을 미리 봅니다.
+     키보드 → 는 다음 날, ← 는 이전 날이고, 노트북에서는 마우스로 끌어도 됩니다.
      · 고른 날짜는 주소에 &date=YYYY-MM-DD 로 남겨 새로고침해도 그 날짜가 유지됩니다.
      · 오늘로 돌아오면 date를 지워 다시 '실시간'으로 돌아갑니다(주말 검정 대기도 그때 다시 적용).
      · 미리 본 날짜를 10분 넘게 그대로 두면 저절로 오늘(실시간)로 돌아갑니다.
@@ -2571,7 +2571,8 @@ async function initDisplay(){const display=$('display-root');$('app').classList.
     touchStart = null;
     if (Math.abs(dx) < 50) return;
     if (Math.abs(dx) <= Math.abs(dy) * 1.2) return;
-    shiftDate(dx > 0 ? 1 : -1);
+    /* 손가락을 왼쪽으로 밀면(dx < 0) 다음 날, 오른쪽으로 밀면(dx > 0) 이전 날 (2026-11-27 방향 반대로 수정) */
+    shiftDate(dx > 0 ? -1 : 1);
   }
   document.addEventListener('touchstart', onTouchStart, { passive: true });
   document.addEventListener('touchend', onDragEnd, { passive: true });
@@ -2783,7 +2784,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-2012';
+  var BUILD = '2026-11-27-2016';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
