@@ -1117,7 +1117,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     if (!c) return '';
     var v = c.v, f = c.f;
     if (v === null || v === undefined) return (f === null || f === undefined) ? '' : String(f).trim();
-    if (typeof v === 'string' && v.indexOf('Date(') === 0) return f ? String(f).trim() : v;
+    if (typeof v === 'string' && v.indexOf('Date(') === 0) return v;   /* Date(2026,11,1) 형태가 표시 형식보다 정확 */
     return String(v).trim();
   }
   function toDate(s) {
