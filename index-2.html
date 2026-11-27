@@ -1049,7 +1049,14 @@ html.wk-standby #fs-toggle{display:none!important}
   width:100%!important;
   max-width:100%!important;
   min-width:0!important;
-  text-wrap:balance;
+  /* 오른쪽 경계 (2026-11-27 요청): 카드 오른쪽 위 영문 강의실명(TREND·PASSION…)이 시작되는
+     세로선 앞에서 제목이 끊깁니다. 실제 폭은 fitLobbyNames가 그 화면에서 가장 넓은
+     영문명을 재어 인라인 padding-right로 넣고, 아래 값은 스크립트가 닿기 전의 기본값입니다. */
+  padding-right:var(--kl-name-right,9cqw)!important;
+  /* 자연스러운 줄바꿈: 첫 줄은 오른쪽 경계까지 채우고, 마지막 줄에 한 단어만 남지 않게 합니다.
+     text-wrap:pretty 를 모르는 브라우저는 앞의 wrap 으로 동작합니다. */
+  text-wrap:wrap;
+  text-wrap:pretty;
   white-space:normal!important;
   word-break:keep-all;
   overflow-wrap:anywhere;
@@ -1615,8 +1622,18 @@ function lobbyTitleHTML(s){return ehtml(s).replace(/\r?\n/g,'<br>')}
 function fitLobbyNames(root){
   const scope=root||document;
   const names=scope.querySelectorAll('.signage-lobby .kl-event-name');
+  /* 제목 오른쪽 경계 = 카드 오른쪽 위 영문 강의실명이 시작되는 세로선.
+     그 화면에서 가장 넓은 영문명 폭 + 약간의 여백을 오른쪽 padding으로 주어
+     모든 카드가 같은 세로선 앞에서 끊기게 합니다(카드마다 경계가 달라지지 않음). */
+  const lobby=(scope.classList&&scope.classList.contains('signage-lobby'))?scope:scope.querySelector('.signage-lobby');
+  let enMax=0;
+  if(lobby&&lobby.getBoundingClientRect().width){
+    lobby.querySelectorAll('.kl-room-en').forEach(function(en){const w=en.getBoundingClientRect().width;if(w>enMax)enMax=w});
+  }
+  const rightPad=enMax?enMax+lobby.getBoundingClientRect().width*.013:0;
   names.forEach(function(n){
     n.style.removeProperty('font-size');
+    if(rightPad)n.style.setProperty('padding-right',rightPad.toFixed(2)+'px','important');
     const base=parseFloat(getComputedStyle(n).fontSize);
     /* 숨겨진 상태(미리보기 감춤 등)에서는 폭·높이가 0이라 판단하지 않고 건너뜁니다. */
     if(!base||!n.clientWidth||!n.clientHeight)return;
@@ -2683,7 +2700,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-1952';
+  var BUILD = '2026-11-27-2015';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
