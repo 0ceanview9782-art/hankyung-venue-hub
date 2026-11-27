@@ -1026,9 +1026,8 @@ html.wk-standby #fs-toggle{display:none!important}
 
 <style id="lobby-two-line-20261127">
 /* 로비 안내판 · 긴 강의명 2줄 표시 (2026-11-27 요청)
-   · 제목은 언제나 '2줄 높이'의 자리를 차지합니다. 그래서 짧은 제목과 두 줄 제목이
-     섞여 있어도 카드 높이·강의실 줄·시간 줄이 모든 카드에서 같은 위치에 옵니다.
-   · 두 줄이 넘는 아주 긴 제목은 스크립트(fitLobbyNames)가 글자를 조금씩 줄여
+   · 한 줄짜리 제목은 한 줄 높이만 쓰고 카드는 촘촘하게 유지됩니다(2026-11-27 피드백).
+     두 줄이 되는 제목은 두 줄 높이로 자연스럽게 늘어나고, 두 줄이 넘는 아주 긴 제목은
      두 줄 안에 담습니다. 잘려서 '…' 되는 일은 없습니다.
    · 시트 E열에서 Alt+Enter로 직접 줄을 바꾼 경우도 그 줄에서 그대로 나뉩니다.
    · 카드는 화면 높이에 맞춰 늘리지 않고, 내용만큼만 촘촘하게 씁니다(flex:0 0 auto).
@@ -1040,7 +1039,10 @@ html.wk-standby #fs-toggle{display:none!important}
   font-size:var(--kl-name-size)!important;
   line-height:1.13!important;
   margin:1.4cqw 0 0!important;
-  min-height:var(--kl-name-block)!important;
+  /* 한 줄짜리 강의명은 한 줄 높이만 차지합니다(2026-11-27 피드백: 원래의 촘촘한 카드).
+     카드마다 빈자리를 억지로 만들지 않고, 두 줄이 되는 제목만 그만큼 자연스럽게 늘어납니다.
+     아주 긴 제목은 아래 max-height(두 줄)까지만 쓰고 넘치면 fitLobbyNames가 글자를 줄입니다. */
+  min-height:0!important;
   max-height:var(--kl-name-block)!important;
   overflow:hidden!important;
   display:block!important;
@@ -2700,7 +2702,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-2015';
+  var BUILD = '2026-11-27-2026';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
