@@ -2429,6 +2429,8 @@ if(isDisplay)initDisplay();else initAdmin();
        · 자동 판단: 오늘 중 이 화면(로비는 전체 강의실)에 걸린 대관이 있는지 봅니다.
          금요일은 17:50 이후, 월요일은 08:00 이전 구간만 따집니다. 그래서 월요일에는
          08:00 이 되면 저절로 밝아지고, 주말에 대관이 있으면 그때는 켜져 있습니다.
+       · 예외: 트렌드 'AX Wave 2기' 대관은 2027-04-28 까지 주말 판단에서 대관 없음으로
+         봅니다(트렌드·로비 모두). 아래 `isWeekendException` 참고.
        · 덮여 있는 동안에도 화면 꺼짐 방지(wake lock)는 계속 요청된 상태로 두어
          태블릿이 스스로 켜질 수 있게 합니다.
        · 주소에 &date=YYYY-MM-DD 를 붙여 다른 날짜를 미리 볼 때는 덮지 않습니다. */
@@ -2469,12 +2471,28 @@ if(isDisplay)initDisplay();else initAdmin();
       if (p.day === 1) return [p.date + 'T00:00', p.date + 'T08:00'];
       return [p.date + 'T00:00', p.date + 'T24:00'];
     }
+    /* ── 예외: 트렌드 'AX Wave 2기' — 2027-04-28 까지 ──────────────────────
+       트렌드는 주말에도 과정이 열리지만, 2027-04-28 까지는 주말에 안내판을 꺼 두라고
+       지시받았습니다(2026-11-27). 그래서 그 기간 트렌드의 'AX Wave 2기' 대관은
+       주말 자동 판단에서 '대관 없음'으로 봅니다. 트렌드 화면과 로비 화면 모두 적용.
+       다른 강의실 일정이나 다른 행사는 그대로 켜는 근거가 됩니다. */
+    var AX_WAVE2_UNTIL = '2027-04-28';
+    var axExcluded = 0;
+    function isWeekendException(e) {
+      if (String(e.room || '') !== 'trend') return false;
+      var t = String(e.title || e.public_title || '').toLowerCase().replace(/\s+/g, '');
+      if (t.indexOf('axwave2기') < 0) return false;
+      var d = String(e.start_at || '').slice(0, 10);
+      return !!d && d <= AX_WAVE2_UNTIL;
+    }
     function screenHasEvent(p) {
       var list = window.__sheetEvents;
       if (!Array.isArray(list)) return true;     /* 시트를 못 읽었을 때는 덮지 않음(안전) */
       var seg = todaySegment(p);
+      axExcluded = 0;
       for (var i = 0; i < list.length; i++) {
         var e = list[i] || {};
+        if (isWeekendException(e)) { axExcluded++; continue; }
         if (screen !== 'lobby' && e.room !== screen) continue;
         if (String(e.start_at || '').slice(0, 10) !== p.date) continue;
         if (p.day === 1 && e.all_day) continue;  /* 월요일 08시 전에는 종일 일정을 무시 */
@@ -2503,7 +2521,8 @@ if(isDisplay)initDisplay();else initAdmin();
       if (want !== standby) applyStandby(want);
       window.__venueWeekend = {
         standby: standby, mode: window.__venueWeekendMode || 'auto', raw: window.__venueWeekendRaw || '',
-        date: p.date, day: p.day, hhmm: p.hhmm, screen: screen, forcedDate: forcedDate || null
+        date: p.date, day: p.day, hhmm: p.hhmm, screen: screen, forcedDate: forcedDate || null,
+        axWave2Until: AX_WAVE2_UNTIL, axExcluded: axExcluded
       };
     }
     window.__venueWeekendGuard = guard;
