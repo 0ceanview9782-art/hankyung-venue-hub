@@ -1031,7 +1031,9 @@ html.wk-standby #fs-toggle{display:none!important}
    · 두 줄이 넘는 아주 긴 제목은 스크립트(fitLobbyNames)가 글자를 조금씩 줄여
      두 줄 안에 담습니다. 잘려서 '…' 되는 일은 없습니다.
    · 시트 E열에서 Alt+Enter로 직접 줄을 바꾼 경우도 그 줄에서 그대로 나뉩니다.
-   · 카드 사이 여백은 남는 높이를 고르게 나눠 화면을 꽉 채웁니다. */
+   · 카드는 화면 높이에 맞춰 늘리지 않고, 내용만큼만 촘촘하게 씁니다(flex:0 0 auto).
+   · 카드 묶음은 날짜·구분선 바로 아래에서 위에서부터 차곡차곡 쌓입니다(justify-content:flex-start).
+     강의가 하나뿐인 날에도 카드가 화면 가운데로 떠내려가지 않습니다. */
 .signage-lobby .kl-event-name{
   --kl-name-size:5.05cqw;
   --kl-name-block:12.1cqw;
@@ -1048,11 +1050,12 @@ html.wk-standby #fs-toggle{display:none!important}
 }
 .signage-lobby .kl-event-name.long,
 .signage-lobby .kl-event-name.very-long{font-size:var(--kl-name-size)!important}
+/* 카드 묶음은 위에서부터 쌓기 — 가운데 정렬(space-evenly) 금지 */
+.signage-lobby .kl-list{justify-content:flex-start!important;align-items:stretch}
+/* 카드는 화면 높이에 맞춰 늘리지 않고 내용만큼만 — 예전의 촘촘한 크기로.
+   (예전 배포본에 있던 padding-top/bottom 확장은 지웠고, 카드 높이는 기본값을 그대로 쓸니다) */
+.signage-lobby .kl-event{flex:0 0 auto!important}
 .signage-lobby.kakao-lobby.four .kl-event-name{--kl-name-size:4.7cqw;--kl-name-block:11.3cqw}
-.signage-lobby .kl-list{justify-content:space-evenly!important}
-.signage-lobby.kakao-lobby.four .kl-event{padding-top:4.6cqw!important;padding-bottom:4.6cqw!important}
-.signage-lobby.kakao-lobby.three .kl-event{padding-top:3.6cqw!important;padding-bottom:3.6cqw!important}
-.signage-lobby.kakao-lobby.few .kl-event{padding-top:4.6cqw!important;padding-bottom:4.6cqw!important}
 .signage-lobby .kl-event .kl-time{margin-top:1.6cqw!important}
 </style>
 </head>
