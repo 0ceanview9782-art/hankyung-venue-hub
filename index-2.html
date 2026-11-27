@@ -1044,17 +1044,30 @@ html.wk-standby #fs-toggle{display:none!important}
   max-height:var(--kl-name-block)!important;
   overflow:hidden!important;
   display:block!important;
-  text-wrap:balance;
+  /* 폭 고정: flex/grid 자식의 min-width:auto 때문에 카드 밖으로 밀려나는 일을 막습니다. */
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  text-wrap:wrap!important;
+  white-space:normal!important;
   word-break:keep-all;
   overflow-wrap:anywhere;
+  -webkit-hyphens:none;
+  hyphens:none;
 }
 .signage-lobby .kl-event-name.long,
 .signage-lobby .kl-event-name.very-long{font-size:var(--kl-name-size)!important}
 /* 카드 묶음은 위에서부터 쌓기 — 가운데 정렬(space-evenly) 금지 */
-.signage-lobby .kl-list{justify-content:flex-start!important;align-items:stretch}
+.signage-lobby .kl-list{justify-content:flex-start!important;align-items:stretch;min-width:0}
 /* 카드는 화면 높이에 맞춰 늘리지 않고 내용만큼만 — 예전의 촘촘한 크기로.
    (예전 배포본에 있던 padding-top/bottom 확장은 지웠고, 카드 높이는 기본값을 그대로 쓸니다) */
-.signage-lobby .kl-event{flex:0 0 auto!important}
+.signage-lobby .kl-event{flex:0 0 auto!important;min-width:0;max-width:100%;box-sizing:border-box}
+/* 카드 안의 줄들도 폭을 넘겨 밀고 나가지 않게 고정합니다. */
+.signage-lobby .kl-event .kl-top,
+.signage-lobby .kl-event .kl-time{min-width:0;max-width:100%;box-sizing:border-box}
+.signage-lobby .kl-event .kl-room{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.signage-lobby .kl-event .kl-time{flex-wrap:wrap}
 .signage-lobby.kakao-lobby.four .kl-event-name{--kl-name-size:4.7cqw;--kl-name-block:11.3cqw}
 .signage-lobby .kl-event .kl-time{margin-top:1.6cqw!important}
 </style>
@@ -1605,12 +1618,39 @@ function fitLobbyNames(root){
   names.forEach(function(n){
     n.style.removeProperty('font-size');
     const base=parseFloat(getComputedStyle(n).fontSize);
-    if(!base)return;
-    /* 스타일시트의 font-size가 !important라 인라인도 important로 넣어야 실제로 줄어듭니다. */
-    const floor=base*.62;let size=base,guard=0;
-    while(n.scrollHeight>n.clientHeight+1&&guard++<16&&size>floor){size=Math.max(floor,size-base*.05);n.style.setProperty('font-size',size+'px','important')}
+    /* 숨겨진 상태(미리보기 감춤 등)에서는 폭·높이가 0이라 판단하지 않고 건너뜁니다. */
+    if(!base||!n.clientWidth||!n.clientHeight)return;
+    /* 스타일시트의 font-size가 !important라 인라인도 important로 넣어야 실제로 줄어듭니다.
+       가로(카드 밖으로 넘침)와 세로(2줄 자리 넘침)를 함께 확인하며 줄입니다. */
+    const floor=Math.max(6,base*.55);
+    const fits=function(){return n.scrollWidth<=n.clientWidth+1&&n.scrollHeight<=n.clientHeight+1};
+    let size=base,guard=0;
+    while(!fits()&&guard++<40&&size>floor){
+      size=Math.max(floor,size-Math.max(.5,size*.04));
+      n.style.setProperty('font-size',size+'px','important');
+    }
   });
 }
+/* 글꼴이 늦게 준비되거나 창 크기·화면 배율이 바뀌어도 제목이 카드 밖으로 넘치지 않게 다시 맞춥니다. */
+function fitAllLobbyNames(){document.querySelectorAll('.signage-lobby').forEach(function(el){fitLobbyNames(el)})}
+let __lobbyFitTimer=0;
+function scheduleLobbyFit(){clearTimeout(__lobbyFitTimer);__lobbyFitTimer=setTimeout(fitAllLobbyNames,80)}
+const __lobbyRO=(typeof ResizeObserver!=='undefined')?new ResizeObserver(function(){scheduleLobbyFit()}):null;
+function observeLobby(el){
+  if(!__lobbyRO||!el)return;
+  if(el.classList&&el.classList.contains('signage-lobby'))__lobbyRO.observe(el);
+  el.querySelectorAll&&el.querySelectorAll('.signage-lobby').forEach(function(s){__lobbyRO.observe(s)});
+}
+function bootLobbyFit(){
+  fitAllLobbyNames();
+  observeLobby(document);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){fitAllLobbyNames()}).catch(function(){});
+  window.addEventListener('resize',scheduleLobbyFit);
+  window.addEventListener('orientationchange',scheduleLobbyFit);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)scheduleLobbyFit()});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootLobbyFit);else bootLobbyFit();
+window.addEventListener('load',function(){fitAllLobbyNames()});
 function rColor(c){return `${c}22`}
 function eventOverlapsDay(e,day){const start=day+'T00:00',end=plusDays(day,1)+'T00:00';return e.start_at<end && e.end_at>start}
 function localDayTime(e,day){if(e.all_day)return '종일';const st=e.start_at.slice(0,10)===day?e.start_at.slice(11,16):'00:00';const et=e.end_at.slice(0,10)===day?e.end_at.slice(11,16):'24:00';return `${st}–${et}`}
@@ -1830,7 +1870,7 @@ function lobbySigHTML(items,date,pageOverride=null){
   </section>`;
 }
 
-function renderPreview(){const items=filteredPublic(),el=$('preview-frame');if(!el)return;const lobby=state.screen==='lobby';el.classList.toggle('vertical',lobby);const current=lobby?null:items[state.previewIndex%Math.max(items.length,1)];el.innerHTML=lobby?lobbySigHTML(items,state.signDate):roomSigHTML(room(state.screen),current,state.signDate);if(lobby)fitLobbyNames(el);$('preview-label').textContent=lobby?'로비 · 전체 행사':'강의실 · '+room(state.screen).name;$('preview-count').textContent=`${items.length}개 행사${items.length>1?' · ◀ ▶으로 이동':''}`;$('preview-stage').style.minHeight=lobby?'620px':'450px'}
+function renderPreview(){const items=filteredPublic(),el=$('preview-frame');if(!el)return;const lobby=state.screen==='lobby';el.classList.toggle('vertical',lobby);const current=lobby?null:items[state.previewIndex%Math.max(items.length,1)];el.innerHTML=lobby?lobbySigHTML(items,state.signDate):roomSigHTML(room(state.screen),current,state.signDate);if(lobby){fitLobbyNames(el);observeLobby(el)}$('preview-label').textContent=lobby?'로비 · 전체 행사':'강의실 · '+room(state.screen).name;$('preview-count').textContent=`${items.length}개 행사${items.length>1?' · ◀ ▶으로 이동':''}`;$('preview-stage').style.minHeight=lobby?'620px':'450px'}
 function changePreview(delta){const n=filteredPublic().length;if(n<=1)return;if(state.screen==='lobby'){const pages=Math.ceil(n/4);state.previewIndex=((Math.floor(state.previewIndex/4)+delta+pages)%pages)*4}else state.previewIndex=(state.previewIndex+delta+n)%n;renderPreview()}
 /* 안내 화면 주소는 언제나 지금 열고 있는 이 파일 기준으로 만든다.
    GitHub Pages 하위 경로(/hankyung-venue-hub/index-2.html)에서도 404 없이 열리도록
@@ -2445,7 +2485,7 @@ function initAdminListeners(){
   initChatGPTImport();initCaptureImport();document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));$('new-event').addEventListener('click',()=>openModal());$('prev-week').onclick=()=>shiftCalendar(-1);$('next-week').onclick=()=>shiftCalendar(1);$('today-week').onclick=()=>resetCalendarToToday();$('mode-week').onclick=()=>setCalendarMode('week');$('mode-month').onclick=()=>setCalendarMode('month');$('mode-year').onclick=()=>setCalendarMode('year');$('booking-prev').onclick=()=>shiftBookings(-1);$('booking-next').onclick=()=>shiftBookings(1);$('booking-today').onclick=resetBookings;$('booking-mode-week').onclick=()=>setBookingMode('week');$('booking-mode-month').onclick=()=>setBookingMode('month');$('booking-search').oninput=renderBookings;$('booking-room').onchange=renderBookings;$('booking-status').onchange=renderBookings;$('go-signage').onclick=()=>setView('signage');$('schedule-grid').addEventListener('click',evt=>{let chip=evt.target.closest('[data-event]');if(chip){let row=state.events.find(x=>x.id===Number(chip.dataset.event));if(row)openModal(row);return}const weekly=evt.target.closest('.day-cell');if(weekly){openModal(null,{room:weekly.dataset.room,date:weekly.dataset.day});return}const monthCell=evt.target.closest('.month-cell');if(monthCell){if(state.rooms[0])openModal(null,{room:state.rooms[0].id,date:monthCell.dataset.day});return}const yearCard=evt.target.closest('.year-card');if(yearCard){state.calendarMode='month';state.calendarAnchor=yearCard.dataset.month;loadPeriod().catch(e=>toast(e.message,true));return}});$('bookings-tbody').addEventListener('click',evt=>{const b=evt.target.closest('[data-event]');if(b)openModal(state.bookingEvents.find(e=>e.id===Number(b.dataset.event)))});$('modal-close').onclick=closeModal;$('modal-cancel').onclick=closeModal;$('event-modal').addEventListener('click',e=>{if(e.target===$('event-modal'))closeModal()});$('event-all-day').onchange=toggleAllDay;$('event-image').onchange=e=>chooseEventImage(e.target.files[0]);const brandUp=$('brand-logo-upload');if(brandUp)brandUp.onchange=e=>chooseBrandLogo(e.target.files[0]);const brandRm=$('brand-logo-remove');if(brandRm)brandRm.onclick=removeBrandLogo;$('event-image-clear').onclick=()=>{pendingImageData='';updateImagePreview();const status=$('event-image-status');status.classList.remove('error','success');status.textContent='첨부 이미지가 제거되었습니다. [저장하기]를 눌러 적용하세요.'};$('event-form').addEventListener('submit',saveEvent);$('event-delete').onclick=deleteEvent;$('csv-export').onclick=()=>{if(demoMode){downloadOfflineCSV()}else location.href='/api/export.csv'};$('csv-import').onchange=e=>importCSV(e.target.files[0]);$('sign-date').onchange=e=>{state.signDate=e.target.value;updateWeekExportLabel();loadPublicPreview()};$('screen-list').addEventListener('click',e=>{const b=e.target.closest('[data-screen]');if(!b)return;state.screen=b.dataset.screen;state.previewIndex=0;updateScreenButtons();renderPreview()});$('preview-prev').onclick=()=>changePreview(-1);$('preview-next').onclick=()=>changePreview(1);$('open-screen').onclick=()=>openScreen(false);$('open-preview-screen').onclick=()=>openScreen(true);$('copy-screen-link').onclick=copyDisplayLink;$('save-signage').onclick=downloadImage;$('download-lobby-day').onclick=()=>runBulkDownload('day-lobby');$('download-lobby-week').onclick=()=>runBulkDownload('week-lobby');$('download-week-all').onclick=()=>runBulkDownload('week-all');$('logout-btn').onclick=async()=>{await send('/api/logout','POST',{});showLogin()};document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()})}
 async function loadInitial(){const c=await api('/api/config');state.rooms=c.rooms;$('top-today').textContent=fullDate(TODAY);$('event-room').innerHTML=state.rooms.map(r=>`<option value="${r.id}">${r.name} 강의실</option>`).join('');$('booking-room').innerHTML='<option value="all">전체 강의실</option>'+state.rooms.map(r=>`<option value="${r.id}">${r.name} 강의실</option>`).join('');$('sign-date').value=state.signDate;updateWeekExportLabel();renderScreenButtons();await loadPeriod();await loadBookingPeriod();await loadBranding();if(window.__week1122Update){const d=window.__week1122Update;if(d.conflicts)toast(`대관표 ${d.added}건 반영, 기존 예약과 겹친 ${d.conflicts}건은 건너뛰었습니다.`,true);else if(d.added)toast(`11/22~11/28 대관표 ${d.added}건 반영 완료`);delete window.__week1122Update}if(window.__week1129Update){const d=window.__week1129Update;if(d.conflicts)toast(`11/29~12/05 대관표 ${d.added}건 반영, 기존 예약과 겹친 ${d.conflicts}건은 건너뛰었습니다.`,true);else if(d.added)toast(`11/29~12/05 대관표 ${d.added}건 반영 완료`);delete window.__week1129Update}}
 async function initAdmin(){initAdminListeners();$('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await send('/api/login','POST',{password:$('login-password').value});$('login-password').value='';state.authenticated=true;hideLogin();await loadInitial()}catch(err){$('login-error').textContent=err.message}});try{const s=await api('/api/session');if(s.authenticated){state.authenticated=true;hideLogin();await loadInitial()}else showLogin()}catch(e){showLogin();toast(e.message,true)}setInterval(()=>{if(state.authenticated && $('login-cover').classList.contains('hidden') && $('event-modal').classList.contains('hidden'))loadPeriod().catch(()=>{})},20000)}
-async function initDisplay(){const display=$('display-root');$('app').classList.add('hidden');$('login-cover').classList.add('hidden');display.classList.remove('hidden');const parts=path.split('/');const screen=displayQuery||(parts[2]==='lobby'?'lobby':parts[3]||'lobby');const qs=new URLSearchParams(location.search);const forcedDate=qs.get('date');const update=async()=>{await loadBranding();const day=forcedDate||ymd(new Date());let data;try{data=await api(`/api/public/events?from=${day}&to=${plusDays(day,1)}`)}catch(e){return}if(!state.rooms.length){try{state.rooms=(await api('/api/config')).rooms}catch{}}state.publicEvents=data.events;state.signDate=day;state.screen=screen;renderDisplay()};function renderDisplay(){const items=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).sort((a,b)=>a.start_at.localeCompare(b.start_at));display.classList.toggle('lobby-screen',screen==='lobby');if(screen==='lobby'){display.innerHTML=lobbySigHTML(items,state.signDate);fitLobbyNames(display)}else display.innerHTML=roomSigHTML(room(screen),items[state.previewIndex%Math.max(items.length,1)],state.signDate)}if(window.__sheetFirstLoad){try{await Promise.race([window.__sheetFirstLoad,new Promise(r=>setTimeout(r,1600))])}catch(e){}}await update();setInterval(update,10000);setInterval(()=>{const n=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).length;if(n>1){state.previewIndex=screen==='lobby'?((Math.floor(state.previewIndex/4)+1)%Math.ceil(n/4))*4:(state.previewIndex+1)%n;renderDisplay()}},13000)}
+async function initDisplay(){const display=$('display-root');$('app').classList.add('hidden');$('login-cover').classList.add('hidden');display.classList.remove('hidden');const parts=path.split('/');const screen=displayQuery||(parts[2]==='lobby'?'lobby':parts[3]||'lobby');const qs=new URLSearchParams(location.search);const forcedDate=qs.get('date');const update=async()=>{await loadBranding();const day=forcedDate||ymd(new Date());let data;try{data=await api(`/api/public/events?from=${day}&to=${plusDays(day,1)}`)}catch(e){return}if(!state.rooms.length){try{state.rooms=(await api('/api/config')).rooms}catch{}}state.publicEvents=data.events;state.signDate=day;state.screen=screen;renderDisplay()};function renderDisplay(){const items=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).sort((a,b)=>a.start_at.localeCompare(b.start_at));display.classList.toggle('lobby-screen',screen==='lobby');if(screen==='lobby'){display.innerHTML=lobbySigHTML(items,state.signDate);fitLobbyNames(display);observeLobby(display);}else display.innerHTML=roomSigHTML(room(screen),items[state.previewIndex%Math.max(items.length,1)],state.signDate)}if(window.__sheetFirstLoad){try{await Promise.race([window.__sheetFirstLoad,new Promise(r=>setTimeout(r,1600))])}catch(e){}}await update();setInterval(update,10000);setInterval(()=>{const n=state.publicEvents.filter(e=>screen==='lobby'||e.room===screen).length;if(n>1){state.previewIndex=screen==='lobby'?((Math.floor(state.previewIndex/4)+1)%Math.ceil(n/4))*4:(state.previewIndex+1)%n;renderDisplay()}},13000)}
 if(isDisplay)initDisplay();else initAdmin();
 })();
 
@@ -2633,6 +2673,36 @@ if(isDisplay)initDisplay();else initAdmin();
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
     }
+  } catch (e) {}
+})();
+</script>
+<script>
+/* 안내판 자동 새로고침 (2026-11-27 추가)
+   TV·태블릿이 예전 화면을 켜 둔 채로 남아 있으면, 고쳐서 배포해도 그 화면은 그대로입니다.
+   그래서 안내판 화면은 1분마다 version.json 을 확인하고, 배포본(build)이 달라지면
+   스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
+   ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
+(function(){
+  var BUILD = '2026-11-27-1945';
+  try {
+    var qs = new URLSearchParams(location.search);
+    var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
+    if (!isDisplayPage) return;
+    function check(){
+      fetch('version.json?t=' + Math.floor(Date.now() / 60000), {cache: 'no-store'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){
+          if (j && j.build && j.build !== BUILD) {
+            var u = new URL(location.href);
+            u.searchParams.set('v', j.build);
+            location.replace(u.toString());
+          }
+        })
+        .catch(function(){});
+    }
+    setInterval(check, 60000);
+    setTimeout(check, 1500);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
   } catch (e) {}
 })();
 </script>
