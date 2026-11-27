@@ -1049,7 +1049,7 @@ html.wk-standby #fs-toggle{display:none!important}
   width:100%!important;
   max-width:100%!important;
   min-width:0!important;
-  text-wrap:wrap!important;
+  text-wrap:balance;
   white-space:normal!important;
   word-break:keep-all;
   overflow-wrap:anywhere;
@@ -2683,7 +2683,7 @@ if(isDisplay)initDisplay();else initAdmin();
    스스로 새로고침해 최신 화면으로 바뀝니다. (허브 관리 화면에서는 동작하지 않습니다)
    ▶ 앞으로 index-2.html 을 고쳐 올릴 때는 아래 BUILD 값과 version.json 의 build 를 함께 바꿔 주세요. */
 (function(){
-  var BUILD = '2026-11-27-1945';
+  var BUILD = '2026-11-27-1952';
   try {
     var qs = new URLSearchParams(location.search);
     var isDisplayPage = qs.has('display') || /(lobby|trend|global|wisdom|passion)(\/|$)/.test(location.pathname);
