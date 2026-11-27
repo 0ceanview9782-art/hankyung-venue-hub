@@ -1,0 +1,45 @@
+{
+  "name": "한경아카데미 패션 안내판",
+  "short_name": "패션 안내판",
+  "description": "한경아카데미 패션 강의실 오늘의 일정 안내 화면",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./index-2.html?display=fashion",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "landscape",
+  "background_color": "#ffffff",
+  "theme_color": "#172621",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "prefer_related_applications": false
+}

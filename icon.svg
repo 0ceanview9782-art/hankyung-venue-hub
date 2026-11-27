@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="한경아카데미">
+  <rect width="512" height="512" rx="112" fill="#172621"/>
+  <g fill="#E3EDDD">
+    <rect x="150" y="142" width="54" height="232" rx="16"/>
+    <rect x="308" y="142" width="54" height="232" rx="16"/>
+    <rect x="150" y="232" width="212" height="52" rx="16"/>
+  </g>
+  <circle cx="386" cy="368" r="23" fill="#91A44A"/>
+</svg>
